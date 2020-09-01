@@ -110,7 +110,7 @@
       end
 !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
       subroutine rd_inp(modname,lltname,zuv,c_id,ncon, &
-                        APRI,Geo,outname,interp)
+                        APRI,Geo,interp)
       implicit none
       include 'constit.h'
       character*80 modname,lltname,outname,tmp,rmCom
@@ -120,15 +120,19 @@
       integer k,ic,ncon
 !
       interp=.false.
+      ! modname:
       !read(*,'(a80)',err=1)modname
       modname='DATA/Model_atlas'
       modname=rmCom(modname)
       if(trim(modname).eq.'')modname='model.list'
+      ! lltname:
       !read(*,'(a80)',err=1)lltname
       lltname='DATA/mesh_mask.nc'
       lltname=rmCom(lltname)
+      ! zuv:
       !read(*,'(a1)',err=1)zuv
       zuv='z'
+      ! components:
       !read(*,'(a80)',err=1)tmp
       tmp='m2,s2,n2,k2,k1,o1,p1,q1'
       tmp=rmCom(tmp)
@@ -143,22 +147,27 @@
       enddo
       if(trim(tmp).ne.'')ncon=ic
       c_id(ic)=tmp(1:80)
+      ! AP or PI
       !read(*,'(a80)')tmp
       tmp='AP'
       tmp=rmCom(tmp)
       APRI=.false.
       if(trim(tmp).eq.'AP')APRI=.true.
+      !geo oce
       geo=.false.
       !read(*,'(a80)',err=1)tmp ! geo/oce
       tmp='oce'
       tmp=rmCom(tmp)
       if(tmp(1:3).eq.'geo')geo=.true.
+      ! correction:
       !read(*,*,err=1)k
       k=0
       if(k.eq.1)interp=.true.
-      !read(*,'(a80)',err=1)outname
-      outname='prova'
-      outname=rmCom(outname)
+      ! outname
+      !!read(*,'(a80)',err=1)outname
+      !outname='prova'
+      !outname=rmCom(outname)
+      !!write(6,*),'Outputs: ',modname,lltname,zuv,c_id,ncon,APRI,Geo,outname,interp
       return
 1     write(*,*)'Input file of WRONG FORMAT: see setup.inp'
       write(*,*)'for right format. Recovering setup.inp ... done'
@@ -901,7 +910,8 @@
 !   THE ONLY MODIFICATION IS THAT REAL ARITHMETIC IS DONE IN R*8.           
 !                                                                           
 !   TO CONVERT MODIFIED JULIAN DAY, CALL THIS ROUTINE WITH                 
-!     JULIAN = MJD + 2400001                                               
+!     JULIAN = MJD + 2400001                                              
+!      WRITE(6,*) "JULIAN form routine CALDAT: ",JULIAN
 !                                                                          
       PARAMETER (IGREG=2299161)                                           
       IF (JULIAN.GE.IGREG) THEN                                            
