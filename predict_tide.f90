@@ -51,7 +51,7 @@
       character*2000 fmt
       character*80 rmCom
       character*1 zuv,c1,c2
-      character*80 xy_ll_sub,arg
+      character*80 xy_ll_sub,arg,mesh_mask
       character*10 cdate
       character*8 ctime,day_date
       character*10 deblank 
@@ -63,7 +63,9 @@
       integer*4 status,ncid(ncmx),ncidl(ncmx)
       integer, allocatable:: yyyy(:),mm(:),dd(:),hh(:), &
                              mi(:),ss(:)
-! Loop to read time --> Loop to compute time from date given as line arg
+      integer dimid,len_coo,len_lon,len_lat, row, col, coo_idx, varid
+      real, allocatable:: nav_lon(:,:), nav_lat(:,:)!,tmask(:,:,:,:)
+! Loop to read time --> Loop to compute time from ini date given as line arg
       ll_km=.false.
       WRITE(6,*) "Loop on date and times"
       narg=iargc()
@@ -74,33 +76,47 @@
       ! date is fixed from line arg and the hh mm ss runs on dt= 2 minutes
       !
       ! If there is the arg (should be the date in format: yyyymmdd)
-      if(narg.gt.0)then
-        ! Read the arg, namely the date  
+      if(narg.eq.2)then
+        ! Read the args, namely the date and mesh_mask.nc file  
         call getarg(1,day_date)
         WRITE(6,*) "day_date",day_date
-        ! Set the number of time steps = 24*30-1 (minuts per day/2)
+        call getarg(2,mesh_mask)
+        WRITE(6,*) "mesh_mask file: ",mesh_mask
+        ! Set the number of time steps = 24*30 (minuts per day/2)
         ntime=720
         ! Allocate the date time values
         allocate(yyyy(ntime),mm(ntime),dd(ntime), &
                hh(ntime),mi(ntime),ss(ntime),time_mjd(ntime))
         ! Compute single date time values
         call read_time(ntime,day_date,yyyy,mm,dd,hh,mi,ss,time_mjd)
+        !do it=1,ntime
+        !   write(6,*)"DATE,TIME",yyyy(it),mm(it),dd(it),hh(it),mi(it),ss(it)
+        !enddo
+      else
+       WRITE(6,*) "Ini date and mesh_mask MUST be given as arguments!"
       endif       
       WRITE(6,*) "End loop on date and times"
 !
       ibl=0
       lname='DATA/load_file.nc'
       ! Set values previously given in setup.inp file
-      call rd_inp(modname,lltname,zuv,c_id,ncon,APRI,geo, &
+      call rd_inp(modname,zuv,c_id,ncon,APRI,geo, &
                   interp_micon)
-      ! Compose the outname string
+      ! Compose the outname string and open the new file
       outname='tide_tpxo9_'//day_date
       outname=trim(outname)
       WRITE(6,*) "Outname: ",outname
-      !
+      open(unit=11,file=outname,status='unknown')
+      ! Set mesh_mask file name from 2^ arg
+      lltname=mesh_mask
+!
+      ! NETCDF OUTFILE TO BE BUILT AND OPEN
+
+
+      ! Read infos on tpxo grid, etc
       call rd_mod_file(modname,hname,uname,gname,xy_ll_sub,nca,c_id_mod)
-      !WRITE(6,*) "Done!!!!"
       write(*,*)
+      ! Print on stdout setup infos
       write(*,*)'Lat/Lon file:',trim(lltname)
       if(ncon.gt.0)write(*,*)'Constituents to include: ',c_id(1:ncon)
       if(zuv.eq.'z')then
@@ -112,8 +128,7 @@
       endif
       if(interp_micon)write(*,*)'Interpolate minor constituents'
 !
-      open(unit=11,file=outname,status='unknown')
-
+      ! Infos on tpxo9 input files..
       call rd_mod_header_nc(modname,zuv,n,m,th_lim,ph_lim,nc,c_id_mod,&
                           xy_ll_sub)
       write(*,*)'Model:        ',trim(modname(12:80))
@@ -215,32 +230,57 @@
       call def_con_ind(c_id,ncon,c_id_mod,nc,cind)
 ! find corresponding indices in constit.h
       call def_cid(ncon,c_id,ccind)
-! TO BE CHANGED TO READ mesh_mask.nc
-      write(6,*)'READ MESH_MASK file!'
-      if(narg.eq.0)then
-       ndat=ntime
+! Read latitudes and longitudes from mesh_mask.nc
+      write(6,*)'Open and read NEMO mesh_mask.nc file: ',lltname
+      status=nf_open(trim(lltname),nf_nowrite,ncid)
+      if(status.eq.0)then
+       ! Read longitude len
+       status=nf_inq_dimid(ncid,'y',dimid)
+       status=nf_inq_dimlen(ncid,dimid,len_coo)
+       len_lon=len_coo
+       ! Read latitude len
+       status=nf_inq_dimid(ncid,'x',dimid)
+       status=nf_inq_dimlen(ncid,dimid,len_coo)
+       len_lat=len_coo
       else
-       ndat=1 
-       !ndat=0
-       !open(unit=1,file=lltname,status='old',err=6)
-!20    read(1,*,end=19)dum,dum
-       !ndat=ndat+1
-       !go to 20
-! 19    !close(1)
+       write(6,*)'ERROR: Something wrong with the mesh_mask file..', status
+       stop
       endif
-!
-      !open(unit=1,file=lltname,status='old',err=6)
-      allocate(lat(ndat),lon(ndat),lon0(ndat))
-      lat(1)=35.000
-      lon(1)=30.000
+      ! Grid points number
+      ndat=len_lon*len_lat
+      write(6,*)'Grid points number: ',len_lon,' x ',len_lat,' = ',ndat
+      ! Read coo values from mesh_mask.nc
+      allocate(lat(ndat),lon(ndat),nav_lon(len_lon,len_lat),nav_lat(len_lon,len_lat),lon0(ndat))
+      status=nf_inq_varid(ncid,'nav_lon',varid)
+      status=nf_get_var(ncid,varid,nav_lon)
+      status=nf_inq_varid(ncid,'nav_lat',varid)
+      status=nf_get_var(ncid,varid,nav_lat)
+      !status=nf_inq_varid(ncid,'tmask',varid)
+      !status=nf_get_var(ncid,varid,tmask)
+      !write(6,*)'mask',status
+      coo_idx = 1
+      do row = 1, len_lon
+       do col = 1, len_lat
+        !if (tmask(1,1,row,col).eq.1)then
+         lon(coo_idx)=nav_lon(row,col)
+         lat(coo_idx)=nav_lat(row,col)
+         coo_idx=coo_idx+1
+        !endif
+        !write(6,*)'mask y x lon lat nav_lon = ',tmask(1,1,row,col),row,col,lon(coo_idx),lat(coo_idx)!nav_lon(row,col),nav_lat(row,col)
+       enddo
+      enddo
+      write(6,*)'coo tot: ',coo_idx-1
+      ! Redefn of coordinates..
+      write(6,*)'Start interpolation..  '
       if(zuv.eq.'z')then
        allocate(zpred(ndat))
       else
        allocate(upred(ndat),vpred(ndat))
       endif
       if(trim(xy_ll_sub).ne.'')allocate(x(ndat),y(ndat))
+      lon0=lon
       do k=1,ndat
-       read(1,*)lat(k),lon(k) ! ignore rest of record
+       !write(6,*)'Point 2 be interp:  ',lon(k),lat(k)
        if(trim(xy_ll_sub).eq.'xy_ll_N')then
          call ll_xy_N(lon(k),lat(k),x(k),y(k))
        elseif(trim(xy_ll_sub).eq.'xy_ll_S')then
@@ -248,17 +288,16 @@
        elseif(trim(xy_ll_sub).eq.'xy_ll_CATs')then
          call ll_xy_CATs(lon(k),lat(k),x(k),y(k))
        endif
-       lon0(k)=lon(k)
+       !lon0(k)=lon(k)
        if(trim(xy_ll_sub).eq.'')then ! check on lon convention
         if(lon(k).gt.ph_lim(2))lon(k)=lon(k)-360
         if(lon(k).lt.ph_lim(1))lon(k)=lon(k)+360
        endif
       enddo
-      close(1)
-!
+!     
       if(zuv.eq.'z')then      
        allocate(z1(ncon))
-       if(geo) then
+       if(geo) then ! NOT our case..
         write(*,'(a,$)')'Reading load correction header...'
         call rd_mod_header1_nc(lname,nl,ml,ncl,lth_lim,lph_lim,lc_id)
         allocate(lcind(ncon))
@@ -271,7 +310,7 @@
          stop
         endif
        endif
-      else
+      else ! OUR CASE
        allocate(u1(ncon),v1(ncon))
       endif
 !
@@ -281,7 +320,7 @@
        dtmp=depth
        deallocate(depth)
        write(*,*)'done'
-!     TO BE CHANGED INTO NETCDF WRITING:
+!     TO BE CHANGED INTO NETCDF WRITING (SET OUT FILE HEADER)
       ctmp='    Lat       Lon        mm.dd.yyyy hh:mm:ss'
       write(11,*)'' 
       if(zuv.eq.'z')then
@@ -312,7 +351,7 @@
        enddo
        write(*,*)'done'
       endif  
-!
+! Interpolation from tpxo9 to given lat/lon points
       do k=1,ndat
         xt=lon(k)
         yt=lat(k)
@@ -320,11 +359,13 @@
          xt=x(k)
          yt=y(k)
         endif 
-        if(zuv.eq.'z')then
+        if(zuv.eq.'z')then ! Our case
           if(ll_km)z1(1)=-1
+          write(*,*)'Start interpolation..'
           call interp_da_nc(ncid,n,m,th_lim,ph_lim, &
                          yt,xt,z1,ncon,cind,ierr,c1,nca)
-         else
+          write(*,*)'End interpolation..'
+         else ! NOT our case
           if(ll_km)u1(1)=-1
           if(ll_km)v1(1)=-1
           c2='u'                           
@@ -337,6 +378,7 @@
                         yt,xt,v1,ncon,cind,ierr,c2,nca)
         endif
         if(ierr.eq.0)then
+          write(*,*)'Inside'
           if(ll_km)d1=-1
           call interp(dtmp,1,n,m,mz,th_lim,ph_lim, &
                        yt,xt,d1,ierr1,'z')
@@ -345,62 +387,41 @@
                 lat(k),lon(k),zl1,ncon,lcind,ierr1,'z',0)
           z1=z1+zl1    ! apply load correction to get geocentric tide
          endif  
-! predict tide NOT OUR CASE!!
-         if(narg.eq.0)then ! default usage
+! predict tide 
+! OB usage March 2011 (the other case has been removed)
+         do it=1,ntime
           if(zuv.eq.'z')then
-           call ptide(z1,c_id,ncon,ccind,lat(k),time_mjd(k),1,&
+           ! This is our case:
+           write(*,*)'Start time evolution..'
+           write(*,*)'Pre:',hh(it),mi(it),ss(it),yyyy(it),mm(it),dd(it)
+           call ptide(z1,c_id,ncon,ccind,lat(k),time_mjd(it),1,&
                      interp_micon,zpred(k))
+           write(*,*)'Post:',hh(it),mi(it),ss(it),yyyy(it),mm(it),dd(it)
+           write(*,*)'End time evolution..'
           else
-           call ptide(u1,c_id,ncon,ccind,lat(k),time_mjd(k),1,&
+           call ptide(u1,c_id,ncon,ccind,lat(k),time_mjd(it),1,&
                      interp_micon,upred(k))
-           call ptide(v1,c_id,ncon,ccind,lat(k),time_mjd(k),1,&
-                     interp_micon,vpred(k))
+           call ptide(v1,c_id,ncon,ccind,lat(k),time_mjd(it),1,&
+                    interp_micon,vpred(k))
           endif
-!
-          write(cdate,'(i2,a1,i2,a1,i2)')hh(k),':',mi(k),':',ss(k)
+          ! WRITE: TO BE IMPLEMENTED TO BUILD A NETCDF!!!
+          write(*,*)'Start writing values..'
+          write(cdate,'(i2,a1,i2,a1,i2)')hh(it),':',mi(it),':',ss(it)
           ctime=deblank(cdate)
-          write(cdate,'(i2,a1,i2,a1,i4)')mm(k),'.',dd(k),'.',yyyy(k)
+          write(cdate,'(i2,a1,i2,a1,i4)')mm(it),'.',dd(it),'.',yyyy(it)
           cdate=deblank(cdate)
-          if(zuv.eq.'z')then
-          write(11,'(1x,f10.4,f10.4,5x,a10,1x,a8,f10.3,f10.3)')&
-            lat(k),lon0(k),cdate,ctime,zpred(k),real(d1)
-          else
-          write(11,'(1x,f10.4,f10.4,5x,a10,1x,a8,5(f10.3))')&
-           lat(k),lon0(k),cdate,ctime,upred(k),vpred(k),&
-           upred(k)/real(d1)*100,vpred(k)/real(d1)*100,real(d1)
+          if(it.eq.1)then
+           write(11,'(1x,f10.4,f10.4)')lat(k),lon0(k) !lon0
           endif
-! OB usage March 2011
-! THIS IS OUR CASE!
-         else
-          do it=1,ntime
-           if(zuv.eq.'z')then
-            ! This is our case:
-            call ptide(z1,c_id,ncon,ccind,lat(k),time_mjd(it),1,&
-                      interp_micon,zpred(k))
-           else
-            call ptide(u1,c_id,ncon,ccind,lat(k),time_mjd(it),1,&
-                      interp_micon,upred(k))
-            call ptide(v1,c_id,ncon,ccind,lat(k),time_mjd(it),1,&
-                     interp_micon,vpred(k))
-           endif
-!
-           write(cdate,'(i2,a1,i2,a1,i2)')hh(it),':',mi(it),':',ss(it)
-           ctime=deblank(cdate)
-           write(cdate,'(i2,a1,i2,a1,i4)')mm(it),'.',dd(it),'.',yyyy(it)
-           cdate=deblank(cdate)
-           if(it.eq.1)then
-            write(11,'(1x,f10.4,f10.4)')lat(k),lon0(k)
-           endif
-           if(zuv.eq.'z')then
-            write(11,'(26x,a10,1x,a8,f10.3,f10.3)')&
-                  cdate,ctime,zpred(k),real(d1)
-           else
-            write(11,'(26x,a10,1x,a8,5(f10.3))')&
-                  cdate,ctime,upred(k),vpred(k),&
-             upred(k)/real(d1)*100,vpred(k)/real(d1)*100,real(d1)
-           endif
-          enddo
-         endif
+          if(zuv.eq.'z')then ! OUR case
+           write(11,'(26x,a10,1x,a8,f10.3,f10.3)')&
+                 cdate,ctime,zpred(k),real(d1)
+          else ! NOT our case
+           write(11,'(26x,a10,1x,a8,5(f10.3))')&
+                 cdate,ctime,upred(k),vpred(k),&
+            upred(k)/real(d1)*100,vpred(k)/real(d1)*100,real(d1)
+          endif
+         enddo
         else
           write(11,'(1x,f10.4,f10.4,a)')lat(k),lon(k),&
        '***** Site is out of model grid OR land *****'
