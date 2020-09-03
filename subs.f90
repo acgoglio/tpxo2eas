@@ -109,7 +109,7 @@
       return
       end
 !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-      subroutine rd_inp(modname,lltname,zuv,c_id,ncon, &
+      subroutine rd_inp(modname,zuv,c_id,ncon, &
                         APRI,Geo,interp)
       implicit none
       include 'constit.h'
@@ -126,9 +126,8 @@
       modname=rmCom(modname)
       if(trim(modname).eq.'')modname='model.list'
       ! lltname:
-      !read(*,'(a80)',err=1)lltname
-      lltname='DATA/mesh_mask.nc'
-      lltname=rmCom(lltname)
+      !lltname='/work/ag15419/PHYSW24_DATA/TIDES/DATA0/mesh_mask.nc'
+      !lltname=rmCom(lltname)
       ! zuv:
       !read(*,'(a1)',err=1)zuv
       zuv='z'

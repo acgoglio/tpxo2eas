@@ -39,7 +39,7 @@
       complex, allocatable:: u1(:),v1(:)
       complex d1
       real, allocatable:: lat(:),lon(:),depth(:,:),x(:),y(:),&
-                          lon0(:),zpred(:),upred(:),vpred(:)
+                          lon0(:),zpred(:),upred(:),vpred(:),z_field(:,:)
       real xt,yt 
       real*8, allocatable:: time_mjd(:)
       real th_lim(2),ph_lim(2),dum,lth_lim(2),lph_lim(2)
@@ -60,11 +60,14 @@
       integer ncl,nl,ml,nmod,imod,ibl,ntime,idum,mjd,julian
       integer yyyy1,mm1,dd1,iargc,narg
       integer nca,l
-      integer*4 status,ncid(ncmx),ncidl(ncmx)
+      integer*4 status,ncid(ncmx),ncidl(ncmx),ncid_new(ncmx)
       integer, allocatable:: yyyy(:),mm(:),dd(:),hh(:), &
                              mi(:),ss(:)
-      integer dimid,len_coo,len_lon,len_lat, row, col, coo_idx, varid
-      real, allocatable:: nav_lon(:,:), nav_lat(:,:)!,tmask(:,:,:,:)
+      integer dimid,len_coo,len_lon,len_lat, row, col, &
+              coo_idx, varid,dimid_lat,dimid_lon,dimid_field,dimid_coo,&
+              varid_coo,varid_lat,varid_lon,varid_field,varid_time,&
+              dimid_time
+      real, allocatable:: nav_lon(:,:), nav_lat(:,:)
 ! Loop to read time --> Loop to compute time from ini date given as line arg
       ll_km=.false.
       WRITE(6,*) "Loop on date and times"
@@ -76,12 +79,15 @@
       ! date is fixed from line arg and the hh mm ss runs on dt= 2 minutes
       !
       ! If there is the arg (should be the date in format: yyyymmdd)
-      if(narg.eq.2)then
+      if(narg.eq.3)then
         ! Read the args, namely the date and mesh_mask.nc file  
         call getarg(1,day_date)
         WRITE(6,*) "day_date",day_date
         call getarg(2,mesh_mask)
         WRITE(6,*) "mesh_mask file: ",mesh_mask
+        call getarg(3,outname)
+        WRITE(6,*) "Out file: ",outname
+        ! TIME 
         ! Set the number of time steps = 24*30 (minuts per day/2)
         ntime=720
         ! Allocate the date time values
@@ -93,7 +99,9 @@
         !   write(6,*)"DATE,TIME",yyyy(it),mm(it),dd(it),hh(it),mi(it),ss(it)
         !enddo
       else
-       WRITE(6,*) "Ini date and mesh_mask MUST be given as arguments!"
+       WRITE(6,*) "Ini date, mesh_mask and outfile &
+                   MUST be given as arguments!"
+       stop
       endif       
       WRITE(6,*) "End loop on date and times"
 !
@@ -102,17 +110,19 @@
       ! Set values previously given in setup.inp file
       call rd_inp(modname,zuv,c_id,ncon,APRI,geo, &
                   interp_micon)
-      ! Compose the outname string and open the new file
-      outname='tide_tpxo9_'//day_date
-      outname=trim(outname)
-      WRITE(6,*) "Outname: ",outname
-      open(unit=11,file=outname,status='unknown')
+      ! ASCII OUTFILE:
+      !! Compose the outname string and open the new file
+      !outname='tide_tpxo9_'//day_date
+      !outname=trim(outname)
+      !WRITE(6,*) "Outname: ",outname
+      !open(unit=11,file=outname,status='unknown')
+      !
+      ! NETCDF OUTFILE: the file is built when time lat and lon dims 
+      ! have been defined: look forward!
+!      
       ! Set mesh_mask file name from 2^ arg
       lltname=mesh_mask
 !
-      ! NETCDF OUTFILE TO BE BUILT AND OPEN
-
-
       ! Read infos on tpxo grid, etc
       call rd_mod_file(modname,hname,uname,gname,xy_ll_sub,nca,c_id_mod)
       write(*,*)
@@ -258,6 +268,8 @@
       !status=nf_inq_varid(ncid,'tmask',varid)
       !status=nf_get_var(ncid,varid,tmask)
       !write(6,*)'mask',status
+      !ndat=10 ! TMP
+      ! 
       coo_idx = 1
       do row = 1, len_lon
        do col = 1, len_lat
@@ -278,7 +290,7 @@
        allocate(upred(ndat),vpred(ndat))
       endif
       if(trim(xy_ll_sub).ne.'')allocate(x(ndat),y(ndat))
-      lon0=lon
+      !lon0=lon
       do k=1,ndat
        !write(6,*)'Point 2 be interp:  ',lon(k),lat(k)
        if(trim(xy_ll_sub).eq.'xy_ll_N')then
@@ -288,7 +300,7 @@
        elseif(trim(xy_ll_sub).eq.'xy_ll_CATs')then
          call ll_xy_CATs(lon(k),lat(k),x(k),y(k))
        endif
-       !lon0(k)=lon(k)
+       lon0(k)=lon(k)
        if(trim(xy_ll_sub).eq.'')then ! check on lon convention
         if(lon(k).gt.ph_lim(2))lon(k)=lon(k)-360
         if(lon(k).lt.ph_lim(1))lon(k)=lon(k)+360
@@ -320,16 +332,43 @@
        dtmp=depth
        deallocate(depth)
        write(*,*)'done'
-!     TO BE CHANGED INTO NETCDF WRITING (SET OUT FILE HEADER)
-      ctmp='    Lat       Lon        mm.dd.yyyy hh:mm:ss'
-      write(11,*)'' 
-      if(zuv.eq.'z')then
-        write(11,*)trim(ctmp),'     z(m)   Depth(m)'
-      else
-        write(11,*)trim(ctmp),'   U(m^2/s)  V(m^2/s)',&
-                              '   u(cm/s)   v(cm/s) Depth(m)'
-      endif
-      write(11,*)''
+!     ASCII OUTFILE HEADER:
+      !ctmp='    Lat       Lon        mm.dd.yyyy hh:mm:ss'
+      !write(11,*)'' 
+      !if(zuv.eq.'z')then
+      !  write(11,*)trim(ctmp),'     z(m)   Depth(m)'
+      !else
+      !  write(11,*)trim(ctmp),'   U(m^2/s)  V(m^2/s)',&
+      !                        '   u(cm/s)   v(cm/s) Depth(m)'
+      !endif
+      !write(11,*)''
+      ! NETCDF OUTFILE: create the file with lat,lon and time
+      write(6,*)'Open outfile: ',outname
+      ! Open new file in writing mode
+      status=nf_create(trim(outname),nf_write,ncid_new)
+      ! Set the dimensions
+      status = nf_def_dim(ncid_new, 'coo', ndat, dimid_coo)
+      status = nf_def_dim(ncid_new, 'time', ntime, dimid_time)
+      ! Set vars
+      status = nf_def_var(ncid_new, 'time', nf_int, 1, dimid_coo, &
+               varid_time)
+      status = nf_def_var(ncid_new, 'coo', nf_int, 1,dimid_coo, &
+               varid_coo)
+      status = nf_def_var(ncid_new, 'longitude', nf_float,1,dimid_coo, &
+               varid_lon)
+      status = nf_def_var(ncid_new, 'latitude', nf_float,1,dimid_coo, &
+               varid_lat)
+      status = nf_def_var(ncid_new, 'tide_z', nf_float,2,[dimid_coo, &
+               dimid_time], varid_field)
+      ! Compress field 
+      !status = nf_def_var_chunking(ncid_new, varid_field, NF_CHUNKED, &
+      !         [10,101])
+      ! Add attributes
+      !status = nf_put_att(ncid_new, NF_GLOBAL, 'note', 'tide z tpxo9')
+      !status = nf_put_att(ncid_new, varid_lon, 'units', 'degree_east')
+      !status = nf_put_att(ncid_new, varid_lat, 'units', 'degree_north')
+      !status = nf_put_att(ncid_new, varid_field, '_FillValue', 0)
+      !
 !
       c1=zuv ! since interp change zuv (U->u, V->v)
       fname=hname
@@ -351,7 +390,8 @@
        enddo
        write(*,*)'done'
       endif  
-! Interpolation from tpxo9 to given lat/lon points
+! Interpolation from tpxo9 to given lat/lon points and time evolution
+      allocate(z_field(ndat,ntime))
       do k=1,ndat
         xt=lon(k)
         yt=lat(k)
@@ -361,10 +401,10 @@
         endif 
         if(zuv.eq.'z')then ! Our case
           if(ll_km)z1(1)=-1
-          write(*,*)'Start interpolation..'
+          !write(*,*)'Start interpolation..'
           call interp_da_nc(ncid,n,m,th_lim,ph_lim, &
                          yt,xt,z1,ncon,cind,ierr,c1,nca)
-          write(*,*)'End interpolation..'
+          !write(*,*)'End interpolation..'
          else ! NOT our case
           if(ll_km)u1(1)=-1
           if(ll_km)v1(1)=-1
@@ -378,7 +418,7 @@
                         yt,xt,v1,ncon,cind,ierr,c2,nca)
         endif
         if(ierr.eq.0)then
-          write(*,*)'Inside'
+          !write(*,*)'Inside'
           if(ll_km)d1=-1
           call interp(dtmp,1,n,m,mz,th_lim,ph_lim, &
                        yt,xt,d1,ierr1,'z')
@@ -392,41 +432,53 @@
          do it=1,ntime
           if(zuv.eq.'z')then
            ! This is our case:
-           write(*,*)'Start time evolution..'
-           write(*,*)'Pre:',hh(it),mi(it),ss(it),yyyy(it),mm(it),dd(it)
+           !write(*,*)'Start time evolution..'
            call ptide(z1,c_id,ncon,ccind,lat(k),time_mjd(it),1,&
                      interp_micon,zpred(k))
-           write(*,*)'Post:',hh(it),mi(it),ss(it),yyyy(it),mm(it),dd(it)
-           write(*,*)'End time evolution..'
+           ! Write in field!
+           z_field(k,it)=zpred(k)
+           !write(*,*)'End time evolution..',z_field(k,it)
           else
            call ptide(u1,c_id,ncon,ccind,lat(k),time_mjd(it),1,&
                      interp_micon,upred(k))
            call ptide(v1,c_id,ncon,ccind,lat(k),time_mjd(it),1,&
                     interp_micon,vpred(k))
           endif
-          ! WRITE: TO BE IMPLEMENTED TO BUILD A NETCDF!!!
-          write(*,*)'Start writing values..'
-          write(cdate,'(i2,a1,i2,a1,i2)')hh(it),':',mi(it),':',ss(it)
-          ctime=deblank(cdate)
-          write(cdate,'(i2,a1,i2,a1,i4)')mm(it),'.',dd(it),'.',yyyy(it)
-          cdate=deblank(cdate)
-          if(it.eq.1)then
-           write(11,'(1x,f10.4,f10.4)')lat(k),lon0(k) !lon0
-          endif
-          if(zuv.eq.'z')then ! OUR case
-           write(11,'(26x,a10,1x,a8,f10.3,f10.3)')&
-                 cdate,ctime,zpred(k),real(d1)
-          else ! NOT our case
-           write(11,'(26x,a10,1x,a8,5(f10.3))')&
-                 cdate,ctime,upred(k),vpred(k),&
-            upred(k)/real(d1)*100,vpred(k)/real(d1)*100,real(d1)
-          endif
+          ! WRITE IN ASCII FILE
+          !write(*,*)'Start writing values..'
+          !write(cdate,'(i2,a1,i2,a1,i2)')hh(it),':',mi(it),':',ss(it)
+          !ctime=deblank(cdate)
+          !write(cdate,'(i2,a1,i2,a1,i4)')mm(it),'.',dd(it),'.',yyyy(it)
+          !cdate=deblank(cdate)
+          !if(it.eq.1)then
+           !write(11,'(1x,f10.4,f10.4)')lat(k),lon0(k) 
+          !endif
+          !if(zuv.eq.'z')then ! OUR case
+           !write(11,'(26x,a10,1x,a8,f10.3,f10.3)')&
+                 !cdate,ctime,zpred(k),real(d1)
+          !else ! NOT our case
+           !write(11,'(26x,a10,1x,a8,5(f10.3))')&
+                 !cdate,ctime,upred(k),vpred(k),&
+            !upred(k)/real(d1)*100,vpred(k)/real(d1)*100,real(d1)
+          !endif
          enddo
-        else
-          write(11,'(1x,f10.4,f10.4,a)')lat(k),lon(k),&
-       '***** Site is out of model grid OR land *****'
+        else 
+          ! WRITE IN ASCII FILE
+          !write(11,'(1x,f10.4,f10.4,a)')lat(k),lon(k),&
+          !'***** Site is out of model grid OR land *****'
+          do it=1,ntime
+           z_field(k,it)=0.0
+          enddo
         endif  
       enddo
+      ! WRITE IN THE NETCDF
+      status = nf_enddef(ncid_new)
+      status = nf_put_var(ncid_new, varid_lon, lon0)
+      status = nf_put_var(ncid_new, varid_lat, lat)
+      status = nf_put_var(ncid_new, varid_field, z_field)
+      ! Close the outfile
+      status = nf_close(ncid_new)
+      !
       deallocate(cind,ccind,lat,lon,lon0,dtmp,mz)
       if(zuv.eq.'z')then
        deallocate(z1,zpred)
