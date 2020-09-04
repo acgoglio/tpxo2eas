@@ -985,7 +985,7 @@
                          interp,zpred)
         implicit none
         include 'constit.h'
-        integer ncon,k,ind(ncon),ierr,ntime
+        integer ncon,ntime,k,ind(ncon),ierr
         complex z1(ncon)
         real lat,zpred(ntime)
         real*8 time_mjd(ntime),time,dh
@@ -998,7 +998,7 @@
         logical interp ! now always .false.
 !
         allocate(A(ncon))
-        SecondsPerDay=86400
+	SecondsPerDay=86400
         dlat=lat
         ierr=0
         dh=0. 
@@ -1016,8 +1016,8 @@
           write(*,*)'minor constituents: IGNORED'
           interp=.false.
          endif
-          zpred(k)=zpred(k)+dh ! add minor constituents
-         enddo
+         zpred(k)=zpred(k)+dh ! add minor constituents
+        enddo
         deallocate(A)
         return
         end

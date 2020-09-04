@@ -62,15 +62,12 @@
       integer nca,l
       integer*4 status,ncid(ncmx),ncidl(ncmx),ncid_new(ncmx)
       integer, allocatable:: yyyy(:),mm(:),dd(:),hh(:), &
-                             mi(:),ss(:),coo_array(:),time_array(:)
+                             mi(:),ss(:)
       integer dimid,len_coo,len_lon,len_lat, row, col, &
               coo_idx, varid,dimid_lat,dimid_lon,dimid_field,dimid_coo,&
               varid_coo,varid_lat,varid_lon,varid_field,varid_time,&
               dimid_time
       real, allocatable:: nav_lon(:,:), nav_lat(:,:)
-      !character, allocatable:: time_array(:)
-      character*4 syyyy
-      character*2 smm,sdd,smi,shh,sss
 ! Loop to read time --> Loop to compute time from ini date given as line arg
       ll_km=.false.
       WRITE(6,*) "Loop on date and times"
@@ -263,7 +260,7 @@
       ndat=len_lon*len_lat
       write(6,*)'Grid points number: ',len_lon,' x ',len_lat,' = ',ndat
       ! Read coo values from mesh_mask.nc
-      allocate(lat(ndat),lon(ndat),nav_lon(len_lon,len_lat),nav_lat(len_lon,len_lat),lon0(ndat),coo_array(ndat))
+      allocate(lat(ndat),lon(ndat),nav_lon(len_lon,len_lat),nav_lat(len_lon,len_lat),lon0(ndat))
       status=nf_inq_varid(ncid,'nav_lon',varid)
       status=nf_get_var(ncid,varid,nav_lon)
       status=nf_inq_varid(ncid,'nav_lat',varid)
@@ -279,7 +276,6 @@
         !if (tmask(1,1,row,col).eq.1)then
          lon(coo_idx)=nav_lon(row,col)
          lat(coo_idx)=nav_lat(row,col)
-         coo_array(coo_idx)=coo_idx
          coo_idx=coo_idx+1
         !endif
         !write(6,*)'mask y x lon lat nav_lon = ',tmask(1,1,row,col),row,col,lon(coo_idx),lat(coo_idx)!nav_lon(row,col),nav_lat(row,col)
@@ -289,7 +285,7 @@
       ! Redefn of coordinates..
       write(6,*)'Start interpolation..  '
       if(zuv.eq.'z')then
-       allocate(zpred(ntime)) ! TMP ndat
+       allocate(zpred(ndat))
       else
        allocate(upred(ndat),vpred(ndat))
       endif
@@ -395,7 +391,7 @@
        write(*,*)'done'
       endif  
 ! Interpolation from tpxo9 to given lat/lon points and time evolution
-      allocate(z_field(ndat,ntime),time_array(ndat)) ! BOH time_array(ntime)
+      allocate(z_field(ndat,ntime))
       do k=1,ndat
         xt=lon(k)
         yt=lat(k)
@@ -433,22 +429,20 @@
          endif  
 ! predict tide 
 ! OB usage March 2011 (the other case has been removed)
-         !do it=1,ntime
+         do it=1,ntime
           if(zuv.eq.'z')then
            ! This is our case:
            !write(*,*)'Start time evolution..'
-           call ptide(z1,c_id,ncon,ccind,lat(k),time_mjd,ntime,&
-                     interp_micon,zpred,)
+           call ptide(z1,c_id,ncon,ccind,lat(k),time_mjd(it),1,&
+                     interp_micon,zpred(k))
            ! Write in field!
-           do it=1,ntime
-            z_field(k,it)=zpred(it)
-           enddo
+           z_field(k,it)=zpred(k)
            !write(*,*)'End time evolution..',z_field(k,it)
-          !else
-          ! call ptide(u1,c_id,ncon,ccind,lat(k),time_mjd(it),1,&
-          !           interp_micon,upred(k))
-          ! call ptide(v1,c_id,ncon,ccind,lat(k),time_mjd(it),1,&
-          !          interp_micon,vpred(k))
+          else
+           call ptide(u1,c_id,ncon,ccind,lat(k),time_mjd(it),1,&
+                     interp_micon,upred(k))
+           call ptide(v1,c_id,ncon,ccind,lat(k),time_mjd(it),1,&
+                    interp_micon,vpred(k))
           endif
           ! WRITE IN ASCII FILE
           !write(*,*)'Start writing values..'
@@ -467,7 +461,7 @@
                  !cdate,ctime,upred(k),vpred(k),&
             !upred(k)/real(d1)*100,vpred(k)/real(d1)*100,real(d1)
           !endif
-         !enddo
+         enddo
         else 
           ! WRITE IN ASCII FILE
           !write(11,'(1x,f10.4,f10.4,a)')lat(k),lon(k),&
@@ -478,21 +472,7 @@
         endif  
       enddo
       ! WRITE IN THE NETCDF
-      write(*,*)'Start netcdf writing..'
-      !coo_array=
-      time_array=hh
-      !do it=1,ntime
-      !   write(yyyy(it),*) syyyy
-      !   write(mm(it),*) smm
-      !   write(dd(it),*) sdd 
-      !   write(hh(it),*) shh
-      !   write(mi(it),*) smi
-      !   write(ss(it),*) sss
-      !   time_array(it)=syyyy//'-'//smm//'-'//sdd//' '//shh//':'//smi!//':'//sss !hh
-      !enddo
       status = nf_enddef(ncid_new)
-      status = nf_put_var(ncid_new, varid_coo, coo_array)
-      status = nf_put_var(ncid_new, varid_time,time_array)
       status = nf_put_var(ncid_new, varid_lon, lon0)
       status = nf_put_var(ncid_new, varid_lat, lat)
       status = nf_put_var(ncid_new, varid_field, z_field)
