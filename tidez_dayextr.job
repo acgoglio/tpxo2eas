@@ -1,13 +1,13 @@
 #!/bin/bash
-#BSUB -J tpxo_dayextr[1-2]%2           # Name of the job array
+#BSUB -J tpxo_dayextr[1-2]%2                    # Name of the job array
 #BSUB -o /work/ag15419/job_scratch/tpxo_%J.out  # Appends std output to file %J.out.
 #BSUB -e /work/ag15419/job_scratch/tpxo_%J.err  # Appends std error to file %J.err.
 #BSUB -cwd "/work/ag15419/job_scratch/%J/"
 #BSUB -q serial_24h
-#BSUB -n 1    # Number of CPUs
+#BSUB -n 1                                      # Number of CPUs
 #BSUB -P 0284 
 #
-# ACG 04/11/2019
+# ACG Sep 2020
 # Script for tpxo9 z tide extraction
 # Ini file: tpxo_dayextr.ini 
 #
@@ -66,7 +66,7 @@ echo "Job-Array element: ${LSB_JOBINDEX}"
      exit
   fi
 
-  # Check out dir and built out file name
+  # Check out dir and built outfile name
   if [[ -d ${OUTNC_PATH} ]]; then
      OUTNC_NAME=$( echo "$OUTNC_TEMPLATE" | sed -e "s/%YYYYMMDD%/${DAY2EXTR}/g" )
      OUTFILE_NC="${OUTNC_PATH}/${OUTNC_NAME}"
