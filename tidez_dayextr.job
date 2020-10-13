@@ -1,5 +1,5 @@
 #!/bin/bash
-#BSUB -J tpxo_dayextr[1-2]%2                    # Name of the job array
+#BSUB -J tpxo_dayextr[1-365]%30                 # Name of the job array
 #BSUB -o /work/ag15419/job_scratch/tpxo_%J.out  # Appends std output to file %J.out.
 #BSUB -e /work/ag15419/job_scratch/tpxo_%J.err  # Appends std error to file %J.err.
 #BSUB -cwd "/work/ag15419/job_scratch/%J/"

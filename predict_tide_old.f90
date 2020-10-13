@@ -40,11 +40,10 @@
       complex d1
       real, allocatable:: lat(:),lon(:),depth(:,:),x(:),y(:),&
                           lon0(:),zpred(:),upred(:),vpred(:),&
-                          z_field(:,:),tides_z(:,:,:)!,bathy(:),mbathy(:,:)
-      integer, allocatable:: tmask(:,:,:,:),mask(:),x_idx(:),y_idx(:),&
-                             time_mjs(:)
-      real xt,yt
-      real*8, allocatable:: time_mjd(:) 
+                          z_field(:,:)!,bathy(:),mbathy(:,:)
+      integer, allocatable:: tmask(:,:,:,:),mask(:)
+      real xt,yt 
+      real*8, allocatable:: time_mjd(:)
       real th_lim(2),ph_lim(2),dum,lth_lim(2),lph_lim(2)
       integer, allocatable:: cind(:),lcind(:),ccind(:),mz(:,:)
 !
@@ -65,16 +64,15 @@
       integer nca,l
       integer*4 status,ncid(ncmx),ncidl(ncmx),ncid_new(ncmx)
       integer, allocatable:: yyyy(:),mm(:),dd(:),hh(:),&
-                             mi(:),ss(:),coo_array(:)!,time_array(:)
+                             mi(:),ss(:),coo_array(:)!!!!,time_array(:)
       integer dimid,len_coo,len_lon,len_lat,row,col,len_lev, &
               coo_idx, varid,dimid_lat,dimid_lon,dimid_field,dimid_coo,&
               varid_coo,varid_lat,varid_lon,varid_field,varid_time,&
-              dimid_time,varid_navlat,varid_navlon,dimid_vtime !len_mask,
-      real, allocatable:: nav_lon(:,:), nav_lat(:,:)!!!,time_array(:)
+              dimid_time !len_mask,
+      real, allocatable:: nav_lon(:,:), nav_lat(:,:),time_array(:)
       !!!character, allocatable:: time_array(:)
-      character*4 syyyy !,udm_time
+      character syyyy,udm_time
       character*2 smm,sdd,smi,shh,sss
-      character*19, allocatable:: time_array(:)
 ! Loop to read time --> Loop to compute time from ini date given as line arg
       ll_km=.false.
       WRITE(6,*) "Loop on date and times"
@@ -99,10 +97,9 @@
         ntime=720
         ! Allocate the date time values
         allocate(yyyy(ntime),mm(ntime),dd(ntime), &
-               hh(ntime),mi(ntime),ss(ntime),time_mjd(ntime),time_mjs(ntime))
+               hh(ntime),mi(ntime),ss(ntime),time_mjd(ntime))
         ! Compute single date time values
-        call read_time(ntime,day_date,yyyy,mm,dd,hh,mi,ss,&
-             time_mjd,time_mjs)
+        call read_time(ntime,day_date,yyyy,mm,dd,hh,mi,ss,time_mjd)
         !do it=1,ntime
         !   write(6,*)"DATE,TIME",yyyy(it),mm(it),dd(it),hh(it),mi(it),ss(it)
         !enddo
@@ -253,11 +250,11 @@
       status=nf_open(trim(lltname),nf_nowrite,ncid)
       if(status.eq.0)then
        ! Read longitude len
-       status=nf_inq_dimid(ncid,'x',dimid)
+       status=nf_inq_dimid(ncid,'y',dimid)
        status=nf_inq_dimlen(ncid,dimid,len_coo)
        len_lon=len_coo
        ! Read latitude len
-       status=nf_inq_dimid(ncid,'y',dimid)
+       status=nf_inq_dimid(ncid,'x',dimid)
        status=nf_inq_dimlen(ncid,dimid,len_coo)
        len_lat=len_coo
        ! Read vertical level num 4 tmask
@@ -274,18 +271,12 @@
       ! Read coo values from mesh_mask.nc
       allocate(lat(ndat),lon(ndat),nav_lon(len_lon,len_lat),&
               nav_lat(len_lon,len_lat),lon0(ndat),coo_array(ndat),& 
-              x_idx(len_lon),y_idx(len_lat),&
-              mask(ndat),tmask(len_lon,len_lat,len_lev,1))
+              mask(ndat),tmask(len_lon,len_lat,len_lev,1)) 
               !bathy(ndat),mbathy(len_lon,len_lat))
       status=nf_inq_varid(ncid,'nav_lon',varid)
       status=nf_get_var(ncid,varid,nav_lon)
       status=nf_inq_varid(ncid,'nav_lat',varid)
       status=nf_get_var(ncid,varid,nav_lat)
-      !ErrSt=nf_strerror(status)
-      !status=nf_inq_varid(ncid,'x',varid)
-      !status=nf_get_var(ncid,varid,x_idx)
-      !status=nf_inq_varid(ncid,'y',varid)
-      !status=nf_get_var(ncid,varid,y_idx)
       status=nf_inq_varid(ncid,'tmask',varid)
       !ErrSt=nf_strerror(status)
       status=nf_get_var_int(ncid,varid,tmask)
@@ -303,10 +294,7 @@
          !write(6,*)'tMask: ',mask(coo_idx)
          coo_array(coo_idx)=coo_idx
          coo_idx=coo_idx+1
-         !if (col.eq.1) then
-         !   x_idx(row)=row
-         !endif
-         !   y_idx(col)=col
+        !write(6,*)'mask y x lon lat nav_lon = ',tmask(1,1,row,col),row,col,lon(coo_idx),lat(coo_idx)!nav_lon(row,col),nav_lat(row,col)
        enddo
       enddo
       write(6,*)'coo tot: ',coo_idx-1
@@ -373,33 +361,23 @@
       ! NETCDF OUTFILE: create the file with lat,lon and time
       write(6,*)'Open outfile: ',outname
       ! Open new file in writing mode
-      status=nf_create(trim(outname),nf_netcdf4,ncid_new) !nf_write
+      status=nf_create(trim(outname),nf_write,ncid_new)
       ! Set the dimensions
-      !status = nf_def_dim(ncid_new, 'coo', ndat, dimid_coo)
-      status = nf_def_dim(ncid_new, 'x', len_lon, dimid_lon)
-      status = nf_def_dim(ncid_new, 'y', len_lat, dimid_lat)
-      status = nf_def_dim(ncid_new, 'time_counter', nf_unlimited, dimid_time) !ntime
-      write(6,*)'Time status def dim.. ',status
+      status = nf_def_dim(ncid_new, 'coo', ndat, dimid_coo)
+      status = nf_def_dim(ncid_new, 'time', ntime, dimid_time)
       ! Set vars
-      status = nf_def_var(ncid_new, 'time_counter', nf_int, 1, dimid_time, &
-               varid_time) !nf_char
-      write(6,*)'Time status def var.. ',status
-      status = nf_put_att_text(ncid_new, varid_time,'units',33,&
-               'seconds since 1994-12-24 06:28:16') ! 1994-12-24 06:28:16 1858-11-17
-      write(6,*)'Time status put att.. ',status
-     ! status = nf_def_var(ncid_new, 'coo', nf_int, 1,dimid_coo, &
-     !          varid_coo)
-     ! status = nf_def_var(ncid_new, 'longitude', nf_float,1,dimid_coo, &
-     !          varid_lon)
-     ! status = nf_def_var(ncid_new, 'latitude', nf_float,1,dimid_coo, &
-     !          varid_lat)
-      status = nf_def_var(ncid_new, 'nav_lat', nf_float,2,[dimid_lon,&
-               dimid_lat],varid_navlat)
-      status = nf_def_var(ncid_new, 'nav_lon', nf_float,2,[dimid_lon, &
-               dimid_lat],varid_navlon)
-      status = nf_def_var(ncid_new, 'tide_z', nf_float,3,[dimid_lon,&
-               dimid_lat,dimid_time], varid_field)
-      write(6,*)'Time status field def var.. ',status
+      status = nf_def_var(ncid_new, 'time', nf_int, 1, dimid_coo, &
+               varid_time)
+      !status = nf_put_att_text(ncid_new, dimid_coo,'units',25,&
+      !         'seconds since 1992-01-01 00:00:00') ! 1858-11-17
+      status = nf_def_var(ncid_new, 'coo', nf_int, 1,dimid_coo, &
+               varid_coo)
+      status = nf_def_var(ncid_new, 'longitude', nf_float,1,dimid_coo, &
+               varid_lon)
+      status = nf_def_var(ncid_new, 'latitude', nf_float,1,dimid_coo, &
+               varid_lat)
+      status = nf_def_var(ncid_new, 'tide_z', nf_float,2,[dimid_coo, &
+               dimid_time], varid_field)
       ! Compress field 
       !status = nf_def_var_chunking(ncid_new, varid_field, NF_CHUNKED, &
       !         [10,101])
@@ -461,7 +439,7 @@
           if(c1.eq.'U'.or.c1.eq.'V')c2='V'
           call interp_da_nc(ncid,n,m,th_lim,ph_lim, &
                         yt,xt,v1,ncon,cind,ierr,c2,nca)
-       endif
+        endif
        endif
        if(ierr.eq.0 .and. mask(k).ne.0 ) then !mask(k).eq.1 bathy(k).eq.0 
           !write(*,*)'Inside and on sea'
@@ -521,46 +499,26 @@
           enddo
        endif  
       enddo
-      ! Conversion from coo to nav_lat nav_lon
-      write(*,*)'2D Conversion..'
-      allocate(tides_z(len_lon,len_lat,ntime))
-      do it=1,ntime
-       coo_idx = 1
-       do col = 1, len_lat
-        do row = 1, len_lon
-         tides_z(row,col,it)=z_field(it,coo_idx)
-         coo_idx=coo_idx+1
-        enddo
-       enddo
-      enddo
       ! WRITE IN THE NETCDF
       write(*,*)'Start netcdf writing..'
-      ! time in char (if needed!)
-      !write (syyyy,'(i4.4)') yyyy(1)
-      !write (smm,'(i2.2)') mm(1)
-      !write (sdd,'(i2.2)') dd(1)
+      !coo_array=
+      time_array=time_mjd
+      !time_array=time_mjd*24*60*60
       !do it=1,ntime
-      !!   write(syyyy,'(i4)') yyyy(it)
-      !!   write (smm,'(i2)') mm(it)
-      !!   write (sdd,'(i2)') dd(it)
-      !    write (shh,'(i2.2)') hh(it)
-      !    write (smi,'(i2.2)') mi(it)
-      !    write (sss,'(i2.2)') ss(it)
-      !    time_array(it)=syyyy//'-'//smm//'-'//sdd//' '//shh//':'//smi//':'//sss !hh
+      !   write(yyyy(it),*) syyyy
+      !   write(mm(it),*) smm
+      !   write(dd(it),*) sdd 
+      !   write(hh(it),*) shh
+      !   write(mi(it),*) smi
+      !   write(ss(it),*) sss
+      !   time_array(it)=syyyy !//'-'//smm//'-'//sdd//' '//shh//':'//smi!//':'//sss !hh
       !enddo
       status = nf_enddef(ncid_new)
-      status = nf_put_var(ncid_new, varid_navlat,nav_lat)
-      status = nf_put_var(ncid_new, varid_navlon,nav_lon)
-      status = nf_put_vara(ncid_new, varid_time,1,ntime,time_mjs)
-      status = nf_put_vara(ncid_new,varid_field,[1,1,1],[len_lon,len_lat,ntime],tides_z)
-      ! Write records with loop
-      !do it=1,ntime
-      !  status = nf_put_vara(ncid_new, varid_time,it,ntime,time_mjs(it)) ! time_array
-      !  write(6,*)'Time status put var..',status,time_mjs(1),time_mjs(720)
-      !  status = nf_put_vara(ncid_new,varid_field,&
-      !           [1,1,it],[len_lon,len_lat,ntime],tides_z)
-      !  write(6,*)'Time status field put var..',status
-      !enddo
+      status = nf_put_var(ncid_new, varid_coo, coo_array)
+      status = nf_put_var(ncid_new, varid_time,time_array)
+      status = nf_put_var(ncid_new, varid_lon, lon0)
+      status = nf_put_var(ncid_new, varid_lat, lat)
+      status = nf_put_var(ncid_new, varid_field, z_field)
       ! Close the outfile
       status = nf_close(ncid_new)
       !
@@ -620,16 +578,16 @@
       end
 !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
       subroutine read_time(ntime,day_date,yyyy,mm,dd,hh,&
-                           mi,ss,time_mjd,time_mjs)
+                           mi,ss,time_mjd)
       implicit none
       integer k,k_hh,k_mi,julian,mjd,mm1,dd1,yyyy1
       integer ntime,yyyy(ntime),mm(ntime),dd(ntime),yyyy_o,mm_o,dd_o
-      integer hh(ntime),mi(ntime),ss(ntime),time_mjs(ntime)
+      integer hh(ntime),mi(ntime),ss(ntime)
       real*8 time_mjd(ntime)
       character*10 cdate,deblank
       character*8 day_date
 !
-      ! Loop to set date and compute time
+      ! Loop to set date and compute tim time
       ! Compute date arrays
       read(day_date(1:4),'(i4)') yyyy_o
       read(day_date(5:6),'(i2)') mm_o
@@ -663,15 +621,9 @@
         hh(k)=k_hh
         mi(k)=k_mi
         !WRITE(6,*) "k hh min ",k,hh(k),mi(k)
-        ! Julian days
         time_mjd(k)=dble(mjd)+dble(hh(k))/24.D0+ &
                     dble(mi(k))/(24.D0*60.D0)  + &
                     dble(ss(k))/(24.D0*60.D0*60.D0)
-        ! Julian seconds
-        time_mjs(k)=mjd*(24*60*60)+ &
-                    hh(k)*(60*60)+ &
-                    mi(k)*(60)+ &
-                    ss(k)*1
         k=k+1
         k_mi=k_mi+2
        enddo
