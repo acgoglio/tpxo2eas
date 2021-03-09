@@ -1,23 +1,9 @@
 #!/bin/bash
-#BSUB -J tpxo_dayextr[1-180]%30                 # Name of the job array, example tpxo_dayextr[1-365]%30
-#BSUB -o /work/oda/ag15419/job_scratch/tpxo_%J.out  # Appends std output to file %J.out.
-#BSUB -e /work/oda/ag15419/job_scratch/tpxo_%J.err  # Appends std error to file %J.err.
-#BSUB -cwd "/work/oda/ag15419/job_scratch/%J/"
-#BSUB -q s_long
-#BSUB -n 1                                      # Number of CPUs
-#BSUB -R "rusage[mem=1G]"
-#BSUB -P 0284 
-#
-# ACG Sep 2020
-# Script for tpxo9 z tide extraction
-# Ini file: tpxo_dayextr.ini 
-#
-#set -u
 set -e
 #set -x 
 ################### ENV SETTINGS ##############################
 SRC_DIR="/users_home/oda/ag15419/tpxo2eas/"
-echo "Job-Array element: ${LSB_JOBINDEX}"
+echo "Job-task element: ${LSF_PM_TASKID}"
 ################### PREPROC ###################################
 
 # Source ini file
@@ -33,9 +19,9 @@ echo "Job-Array element: ${LSB_JOBINDEX}"
   # Workdir check and subdir mk
   if [[ -d $EXTR_WORKDIR ]]; then
      cd $EXTR_WORKDIR
-     #mkdir day_${LSB_JOBINDEX}
-     #cd day_${LSB_JOBINDEX}
-     #EXTR_SUBWORKDIR=${EXTR_WORKDIR}/day_${LSB_JOBINDEX}
+     #mkdir day_${LSF_PM_TASKID}
+     #cd day_${LSF_PM_TASKID}
+     #EXTR_SUBWORKDIR=${EXTR_WORKDIR}/day_${LSF_PM_TASKID}
      echo "WORKDIR: $(pwd)"
      
      # Clean workdir
@@ -60,17 +46,20 @@ echo "Job-Array element: ${LSB_JOBINDEX}"
   if [[ ! -d DATA ]] && [[ ! -f DATA/Model_atlas ]]; then
         echo "I need to copy the DATA dir to the workdir.."
         cp -rv ${SRC_DIR}/DATA .
-  else
-        echo "ERROR: DATA/Model_atlas NOT FOUND in SRC_DIR.."
+  #else
+   #     echo "ERROR: DATA/Model_atlas NOT FOUND in SRC_DIR.."
   fi
 
 
 
-  # Set the date based on the index of the array
-  DAY_IDX=$(( ${LSB_JOBINDEX} - 1 ))
+  # Set the date based on the index of the task
+  SET_OF_TASK=$(( ${1} -1 ))
+  SET_OF_TASK=$(( ${SET_OF_TASK} *36 ))
+  echo "set_of_task: $SET_OF_TASK"
+  DAY_IDX=$(( ${LSF_PM_TASKID} + ${SET_OF_TASK} ))
   echo "The extraction starts on date: ${EXTR_STARTDATE}"
   DAY2EXTR=$(date -d "${EXTR_STARTDATE} ${DAY_IDX} day" +%Y%m%d)  
-  echo "This job-array element extracts date: ${DAY2EXTR}"
+  echo "This task element extracts date: ${DAY2EXTR}"
 
   # Check mesh_mask file
   MESHMASK="${MESHMASK_PATH}/${MESHMASK_FILE}"

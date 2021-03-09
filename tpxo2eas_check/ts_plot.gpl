@@ -1,0 +1,27 @@
+#
+#set term png size 1500,700 font "Times,16"
+set term pngcairo size 1700,700 font "Times-New-Roman,16"
+set output "Detiding_diff_point_20190501_eas6.png" 
+#stats 'online_volume_transport_5_48.txt' using 11 name 'STAT_in' nooutput
+#stats 'online_volume_transport_5_48.txt' using 12 name 'STAT_out' nooutput
+#stats 'online_volume_transport_5_48.txt' using 13 name 'STAT_net' nooutput
+stats 'zos_15m.txt' using 9 name 'STAT_zos' nooutput
+stats 'zosdet_15m.txt' using 9 name 'STAT_zosdet' nooutput
+set title "SSH and detided SSH lat=35.960/lon=-3.377 2019/05/01" 
+#set key opaque
+set xlabel "Date" 
+set xdata time 
+set timefmt "%Y-%m-%d %H:%M:%S" 
+set xrange ["2019-05-01 00:00:00":"2019-05-02 00:00:00"] 
+#set yrange ["-3.0":"3.0"]
+set format x "%H:%M" 
+set ylabel "SSH [m]" 
+set grid 
+set key Left
+#set key outside
+set xzeroaxis lt 2 lc rgb "black" lw 3
+plot 'zos_15m.txt' using 3:9 with line lw 3 lt rgb '#1f77b4' title "zos", 'zosdet_15m.txt' using 3:9 with line lw 3 lt rgb '#ff7f0e' title "zos_detided",'ok_tpxo.txt' using 1:6 with line lw 3 lt rgb '#d62728' title "tpxo", 'all_15m.txt' using 3:($9-$20) with line lw 3 lt rgb '#bcbd22' title "Diff zos-zos_detided"
+#plot 'ts_zos2.txt' using 3:9 with line lw 3 lt rgb '#1f77b4' title "zos MEAN", 'ts_zosdet2.txt' using 3:9 with line lw 3 lt rgb '#ff7f0e' title "zos_detided MEAN", 'tpxo_base.txt' using 3:14 with line lw 3 lt rgb '#d62728' title "tpxo MEAN" , 'diff2.txt' using 3:($9-$21) with line lw 3 lt 'magenta' title "MEAN Diff zos-tpxo"
+#plot 'ts_zos2.txt' using 3:9 with line lw 3 lt rgb '#1f77b4' title "zos MIN", 'ts_zos2.txt' using 3:10 with line lw 3 lt rgb '#1f77b4' title "zos MEAN", 'ts_zos2.txt' using 3:11 with line lw 3 lt rgb '#1f77b4' title "zos MAX", 'ts_zosdet2.txt' using 3:9 with line lw 3 lt rgb '#ff7f0e' title "zos_detided MIN", 'ts_zosdet2.txt' using 3:10 with line lw 3 lt rgb '#ff7f0e' title "zos_detided MEAN", 'ts_zosdet2.txt' using 3:11 with line lw 3 lt rgb '#ff7f0e' title "zos_detided MAX", 'tpxo.txt' using 3:9 with line lw 3 lt rgb '#d62728' title "zos MIN", 'tpxo.txt' using 3:10 with line lw 3 lt rgb '#d62728' title "zos MEAN", 'tpxo.txt' using 3:11 with line lw 3 lt rgb '#d62728' title "zos MAX" 
+#plot 'ts_zos2.txt' using 3:9 with line lw 3 lt rgb '#1f77b4' title "zos MIN", 'ts_zos2.txt' using 3:11 with line lw 3 lt rgb '#1f77b4' title "zos MAX", 'ts_zosdet2.txt' using 3:9 with line lw 3 lt rgb '#ff7f0e' title "zos_detided MIN", 'ts_zosdet2.txt' using 3:11 with line lw 3 lt rgb '#ff7f0e' title "zos_detided MAX", 'tpxo.txt' using 3:9 with line lw 3 lt rgb '#d62728' title "zos MIN", 'tpxo.txt' using 3:11 with line lw 3 lt rgb '#d62728' title "zos MAX"
+#plot 'online_volume_transport_5_48.txt' using 1:11 with line lw 3 lt rgb '#1f77b4' title gprintf("Incoming Transport:  AVG = %.3g [Sv]   ", STAT_in_mean), 'online_volume_transport_5_48.txt' using 1:12 with line lw 3 lt rgb '#ff7f0e' title gprintf("Outgoing Transport:  AVG = %.3g0 [Sv]   ", STAT_out_mean), 'online_volume_transport_5_48.txt' using 1:13 with line lw 3 lt rgb '#d62728' title gprintf("Net Transport:  AVG = %.2g [Sv]   ", STAT_net_mean)

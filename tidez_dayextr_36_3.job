@@ -1,0 +1,13 @@
+#!/bin/bash
+#BSUB -J tpxo_dayextr_3_2021              
+#BSUB -o /work/oda/ag15419/job_scratch/tpxo_%J.out  # Appends std output to file %J.out.
+#BSUB -e /work/oda/ag15419/job_scratch/tpxo_%J.err  # Appends std error to file %J.err.
+#BSUB -q p_test
+#BSUB -n 36                                      # Number of CPUs
+#BSUB -x
+#BSUB -R "span[ptile=36]"
+##BSUB -R "rusage[mem=1G]"
+#BSUB -P 0284 
+
+
+blaunch /users_home/oda/ag15419/tpxo2eas/tidez_dayextr_36.sh 3

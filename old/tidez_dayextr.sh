@@ -1,13 +1,4 @@
 #!/bin/bash
-#BSUB -J tpxo_dayextr[1-180]%30                 # Name of the job array, example tpxo_dayextr[1-365]%30
-#BSUB -o /work/oda/ag15419/job_scratch/tpxo_%J.out  # Appends std output to file %J.out.
-#BSUB -e /work/oda/ag15419/job_scratch/tpxo_%J.err  # Appends std error to file %J.err.
-#BSUB -cwd "/work/oda/ag15419/job_scratch/%J/"
-#BSUB -q s_long
-#BSUB -n 1                                      # Number of CPUs
-#BSUB -R "rusage[mem=1G]"
-#BSUB -P 0284 
-#
 # ACG Sep 2020
 # Script for tpxo9 z tide extraction
 # Ini file: tpxo_dayextr.ini 
@@ -17,7 +8,8 @@ set -e
 #set -x 
 ################### ENV SETTINGS ##############################
 SRC_DIR="/users_home/oda/ag15419/tpxo2eas/"
-echo "Job-Array element: ${LSB_JOBINDEX}"
+echo "Job-Array element: $1"
+LSB_JOBINDEX=$1
 ################### PREPROC ###################################
 
 # Source ini file
