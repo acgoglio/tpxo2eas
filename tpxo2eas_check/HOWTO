@@ -1,9 +1,14 @@
 # Example on how to check the TPXO database
-#
+# ---------------------
 # TO JUST CHECK THE DB
 # 1) Set and Use the .py extractor to extract the tpxo time series and cp the outfile to the workdir
 #
+# 2) Set and Run the checking script: tpxo2eas_check.job
+#---------------------------------------------------------------
 # TO COMPARE WITH THE MODEL AND VALIDATE THE DETIDING PROCEDURE
+#
+# 1) Set and Use the .py extractor to extract the tpxo time series and cp the outfile to the workdir
+#
 # 2) Set and Use CDO, example of the procedure is given in the following lines, to extract ts from the model:  
 # cdo remapdis,lon=-3.377322/lat=35.960267 /work/opa/md04916/mst/eas6_anfc_qm_test3/out/20190501_hts-CMCC--ASLV-MFSeas6-MEDATL-b20190101_an-sv07.00.nc remapped.nc
 # cdo infon remapped.nc | grep "zos " > zos_h.txt
@@ -13,3 +18,14 @@
 # 3) Set and run the gnuplot script
 # vi ts_plot.gpl 
 # gnuplot<ts_plot.gpl 
+#
+# -----------------------------------------
+# TO PLOT THE DIFFERENCES BETWEEN V0 AND V1
+#
+# 1) Compute the difference by means of CDO:
+# cdo sub /data/opa/mfs-dev/Med_static/MFS_TPXO_V1/2022/tpxoextr_20220203.nc /data/opa/mfs/Med_static/MFS_TPXO_V0/2022/tpxoextr_20220203.nc /work/oda/ag15419/tmp/new_tpxoextr/diff_v0v1.nc
+#
+# 2) Set the diag_maps_tab.py file following comments
+#
+# 3) Run the py script 
+# python diag_maps_tab.py

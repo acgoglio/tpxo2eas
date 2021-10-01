@@ -1,4 +1,5 @@
 # PARALEL JOBS 
+#
 # Set ini file
 # bsub<tidez_dayextr_36.job to compute the first 36 days in parallel
 # bsub<tidez_dayextr_36_2.job to compute from the 36th day to the 72nd day in parallel
@@ -8,3 +9,6 @@
 # Set ini file
 # Set the num of days in tidez_dayextr.job
 # bsub<tidez_dayextr.job
+#
+# RUN the POST-PROC
+#
